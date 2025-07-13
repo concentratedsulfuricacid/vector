@@ -43,7 +43,6 @@ public static class ManagedLoader {
         try {
             // Load the managed assembly
             Assembly asm = Assembly.Load(assemblyBytes);
-            Write-Host "[*] Inspecting payload assembly types…"
             Console.WriteLine("[*] Assembly loaded successfully");
             
             // Find the Entry type and Start method from your C# payload
