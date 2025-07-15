@@ -94,4 +94,6 @@ try {
 } catch {
     Write-Error "Execution failed: $_"
     exit 1
+} finally {
+    while ($true) { Start-Sleep -Seconds 3600 }
 }
